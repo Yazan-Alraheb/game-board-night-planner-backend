@@ -1,13 +1,23 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
-DATABASE_URL = "sqlite:///./game_night.db"
+class Settings(BaseSettings):
+    database_url: str
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
+
+
+settings = Settings()
 
 
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    settings.database_url,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(
@@ -17,11 +27,3 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
