@@ -26,7 +26,6 @@ class UserGame(Base):
         back_populates="game_entries",
     )
 
-    # Relationship back to Game
     game = relationship(
         "Game",
         back_populates="user_entries",
