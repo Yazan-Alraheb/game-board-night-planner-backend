@@ -27,7 +27,11 @@ class Game(Base):
         back_populates="game",
         cascade="all, delete-orphan",
     )
-
+    game_night_entries = relationship(
+        "GameNightGame",
+        back_populates="game",
+        cascade="all, delete-orphan",
+    )
     __table_args__ = (
         CheckConstraint("minimum_players >= 1"),
         CheckConstraint("maximum_players >= minimum_players"),

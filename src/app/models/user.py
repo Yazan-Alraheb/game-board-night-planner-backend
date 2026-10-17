@@ -18,9 +18,48 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
     preferences = relationship(
         "Preference",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    hosted_game_nights = relationship(
+        "GameNight",
+        back_populates="host",
+        cascade="all, delete-orphan",
+        )
+
+    game_night_memberships = relationship(
+        "GameNightMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    sent_friend_requests = relationship(
+        "Friend",
+        foreign_keys="Friend.requester_id",
+        back_populates="requester",
+        cascade="all, delete-orphan",
+    )
+
+    received_friend_requests = relationship(
+        "Friend",
+        foreign_keys="Friend.receiver_id",
+        back_populates="receiver",
+        cascade="all, delete-orphan",
+    )
+
+    conversation_memberships = relationship(
+        "ConversationMember",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    messages = relationship(
+        "Message",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
