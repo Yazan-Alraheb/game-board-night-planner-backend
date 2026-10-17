@@ -15,9 +15,9 @@ class UserGame(Base):
 
     game_id = Column(
         Integer,
-        ForeignKey("games.id"),
+        ForeignKey("games.id", ondelete="CASCADE"),
         primary_key=True,
-        ondelete="CASCADE",
+        
     )
 
     status = Column(String, nullable=False)
