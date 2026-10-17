@@ -1,5 +1,5 @@
 from sqlalchemy import JSON, CheckConstraint, Column, ForeignKey, Integer, String
-
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
@@ -13,6 +13,7 @@ class Preference(Base):
         ForeignKey("users.id"),
         unique=True,
         nullable=False,
+        ondelete="CASCADE",
     )
 
     preferred_difficulty = Column(String, nullable=True)
@@ -29,7 +30,10 @@ class Preference(Base):
         default=list,
         nullable=False,
     )
-
+    user = relationship(
+        "User",
+        back_populates="preferences",
+    )
     __table_args__ = (
         CheckConstraint(
             "preferred_difficulty IS NULL "
