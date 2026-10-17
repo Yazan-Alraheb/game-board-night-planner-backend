@@ -1,5 +1,5 @@
 from sqlalchemy import JSON, CheckConstraint, Column, Float, Integer, String, Text
-
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
@@ -21,6 +21,12 @@ class Game(Base):
     rating = Column(Float, nullable=True)
     review_count = Column(Integer, nullable=True)
     instructions = Column(Text, nullable=True)
+
+    user_entries = relationship(
+        "UserGame",
+        back_populates="game",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         CheckConstraint("minimum_players >= 1"),

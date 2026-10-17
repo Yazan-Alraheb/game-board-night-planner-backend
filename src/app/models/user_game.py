@@ -1,5 +1,5 @@
 from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, String
-
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
@@ -8,18 +8,35 @@ class UserGame(Base):
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         primary_key=True,
+
     )
 
     game_id = Column(
         Integer,
         ForeignKey("games.id"),
         primary_key=True,
+        ondelete="CASCADE",
     )
 
     status = Column(String, nullable=False)
+    user = relationship(
+        "User",
+        back_populates="game_entries",
+    )
 
+    # Relationship back to Game
+    game = relationship(
+        "Game",
+        back_populates="user_entries",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('owned', 'wishlist')"
+        ),
+    )
     __table_args__ = (
         CheckConstraint(
             "status IN ('owned', 'wishlist')"
