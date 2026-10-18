@@ -36,8 +36,3 @@ class UserGame(Base):
             "status IN ('owned', 'wishlist')"
         ),
     )
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('owned', 'wishlist')"
-        ),
-    )

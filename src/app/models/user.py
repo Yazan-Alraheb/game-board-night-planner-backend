@@ -63,3 +63,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+    game_entries = relationship(
+    "UserGame",
+    back_populates="user",
+    cascade="all, delete-orphan",
+    )

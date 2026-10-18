@@ -4,7 +4,7 @@ from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, S
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
-
+from sqlalchemy import Index, func
 
 class Friend(Base):
     __tablename__ = "friends"
@@ -48,12 +48,19 @@ class Friend(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('pending', 'accepted', 'declined')",
-            name="ck_friend_status",
-        ),
-        CheckConstraint(
-            "requester_id != receiver_id",
-            name="ck_friend_not_self",
-        ),
-    )
+    CheckConstraint(
+        "status IN ('pending', 'accepted', 'declined')",
+        name="ck_friend_status",
+    ),
+    CheckConstraint(
+        "requester_id != receiver_id",
+        name="ck_friend_not_self",
+    ),
+    Index(
+        "uq_active_friend_pair",
+        func.least(requester_id, receiver_id),
+        func.greatest(requester_id, receiver_id),
+        unique=True,
+        postgresql_where=status.in_(["pending", "accepted"]),
+    ),
+)
