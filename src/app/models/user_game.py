@@ -17,7 +17,7 @@ class UserGame(Base):
         Integer,
         ForeignKey("games.id", ondelete="CASCADE"),
         primary_key=True,
-        
+
     )
 
     status = Column(String, nullable=False)
@@ -31,11 +31,6 @@ class UserGame(Base):
         back_populates="user_entries",
     )
 
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('owned', 'wishlist')"
-        ),
-    )
     __table_args__ = (
         CheckConstraint(
             "status IN ('owned', 'wishlist')"

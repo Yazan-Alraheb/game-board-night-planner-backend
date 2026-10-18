@@ -10,10 +10,9 @@ class Preference(Base):
 
     user_id = Column(
         Integer,
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
-        ondelete="CASCADE",
     )
 
     preferred_difficulty = Column(String, nullable=True)
