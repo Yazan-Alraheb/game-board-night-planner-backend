@@ -200,14 +200,17 @@ def test_boolean_lifetime_is_rejected():
 
 
 def test_dotenv_ignores_unrelated_settings(tmp_path, monkeypatch, jwt_secret):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setitem(AuthSettings.model_config, "env_file", ".env")
     monkeypatch.delenv("JWT_SECRET_KEY")
-    (tmp_path / ".env").write_text(
+    env_file = tmp_path / ".env"
+    env_file.write_text(
         f"JWT_SECRET_KEY={jwt_secret}\nDATABASE_URL=unused\nUNRELATED_SETTING=value\n",
         encoding="utf-8",
     )
-    assert decode_access_token(create_access_token(42)) == 42
+    settings = AuthSettings(_env_file=env_file)
+    assert settings.jwt_secret_key.get_secret_value() == jwt_secret
+    assert settings.jwt_access_token_expire_minutes == 30
+    assert "database_url" not in settings.model_dump()
+    assert "unrelated_setting" not in settings.model_dump()
 
 
 def test_secret_below_32_utf8_bytes_is_rejected(monkeypatch):

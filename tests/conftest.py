@@ -1,4 +1,9 @@
+import os
+
 import pytest
+
+# Database settings are loaded at import time; never use the development URL.
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from app.core.auth_settings import AuthSettings, get_auth_settings
 
