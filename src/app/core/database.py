@@ -1,6 +1,7 @@
+from collections.abc import Generator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 
 class Settings(BaseSettings):
@@ -27,3 +28,10 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+def get_db() -> Generator [Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
