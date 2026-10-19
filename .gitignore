@@ -8,6 +8,7 @@ __pycache__/
 
 # Testing
 .pytest_cache/
+pytest_temp/
 
 # Environment variables
 .env
