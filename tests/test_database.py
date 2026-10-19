@@ -1,11 +1,9 @@
 from unittest.mock import MagicMock
 
 import pytest
-import os
-
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 
 from app.core import database
+
 
 def test_get_db_closes_session(monkeypatch):
     mock_session = MagicMock()
@@ -20,6 +18,7 @@ def test_get_db_closes_session(monkeypatch):
         next(dependency)
 
     mock_session.close.assert_called_once()
+
 
 def test_get_db_closes_session_on_exception(monkeypatch):
     mock_session = MagicMock()
