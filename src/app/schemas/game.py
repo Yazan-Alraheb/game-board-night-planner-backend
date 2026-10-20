@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 Difficulty = Literal["Easy", "Medium", "Hard"]
@@ -14,7 +14,7 @@ class GameResponse(BaseModel):
     maximum_players: int
     playtime: int
     difficulty: Difficulty
-    categories: list[str] | None = None
+    categories: list[str] = Field(default_factory=list)
     image_url: str | None = None
     rating: float | None = None
     review_count: int | None = None
@@ -22,6 +22,10 @@ class GameResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("categories", mode="before")
+    @classmethod
+    def normalize_categories(cls, value):
+        return [] if value is None else value
 
 class GameDetailResponse(BaseModel):
     game: GameResponse

@@ -22,7 +22,7 @@ class CollectionUpdate(BaseModel):
 
 
 class CollectionEntryResponse(BaseModel):
-    game_id: int
+    game_id: int = Field(gt=0, le=2_147_483_647)
     status: CollectionStatus
 
 

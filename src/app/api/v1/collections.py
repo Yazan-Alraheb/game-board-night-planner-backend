@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -160,7 +160,7 @@ def add_to_collection(
 )
 def update_collection_game(
     id: int,
-    game_id: int,
+    game_id: Annotated[int, Path(gt=0, le=2_147_483_647)],
     data: CollectionUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
