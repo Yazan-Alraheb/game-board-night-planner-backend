@@ -8,12 +8,12 @@ def get_user_by_email(db: Session, email: str) -> User | None:
 
 
 def create_user(db: Session, name: str, email: str, password_hash: str) -> User:
-    
+
     new_user = User(name = name, email = email, password_hash  = password_hash)
 
-   
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
     return new_user

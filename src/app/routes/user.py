@@ -29,7 +29,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
             detail = "Invalid email or password",
             headers = {"WWW-Authenticate": "Bearer"},
         )
-    
-    
-    
+
+
+
     return TokenResponse(access_token = token)
