@@ -322,3 +322,42 @@ def test_collection_database_prevents_duplicates(db_client):
 
         assert entry is not None
         assert entry.status == "owned"
+
+
+@pytest.mark.parametrize(
+    "game_id",
+    [0, -1, 2_147_483_648, 999999999999999],
+)
+def test_post_rejects_invalid_game_ids(db_client, game_id):
+    client, session_factory = db_client
+
+    user_id, headers = create_user(
+        session_factory, "Bob", "bob@example.com"
+    )
+
+    response = client.post(
+        f"/api/users/{user_id}/collection",
+        headers=headers,
+        json={"game_id": game_id, "status": "owned"},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "game_id",
+    [0, -1, 2_147_483_648, 999999999999999],
+)
+def test_delete_rejects_invalid_game_ids(db_client, game_id):
+    client, session_factory = db_client
+
+    user_id, headers = create_user(
+        session_factory, "Bob", "bob@example.com"
+    )
+
+    response = client.delete(
+        f"/api/users/{user_id}/collection/{game_id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 422

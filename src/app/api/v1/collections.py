@@ -202,7 +202,7 @@ def update_collection_game(
 )
 def remove_from_collection(
     id: int,
-    game_id: int,
+    game_id: Annotated[int, Path(gt=0, le=2_147_483_647)],
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

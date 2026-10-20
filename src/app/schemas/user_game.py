@@ -11,7 +11,7 @@ CollectionStatus = Literal["owned", "wishlist"]
 class CollectionAdd(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    game_id: int = Field(gt=0)
+    game_id: int = Field(gt=0, le=2_147_483_647)
     status: CollectionStatus
 
 
