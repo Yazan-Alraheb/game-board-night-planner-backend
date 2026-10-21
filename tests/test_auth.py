@@ -44,19 +44,24 @@ def client(auth_environment):
 
 
 def post(client, path, **overrides):
-    return client.post(f"/api/auth/{path}", json=USER | overrides)
+    payload = USER | overrides
+    if path == "login":
+        payload.pop("name")
+    return client.post(f"/api/auth/{path}", json=payload)
 
 
 def test_register_and_login(client):
     user = post(client, "register", email=" Bob@Gmail.com ")
     assert user.status_code == 201
-    assert user.json()["email"] == "bob@gmail.com"
-    assert "password_hash" not in user.json()
+    assert user.json()["user"]["email"] == "bob@gmail.com"
+    assert "password_hash" not in user.json()["user"]
+
     response = post(client, "login", email="BOB@GMAIL.COM")
     assert response.status_code == 200
+
     body = response.json()
     assert body["token_type"] == "bearer"
-    assert decode_access_token(body["access_token"]) == user.json()["id"]
+    assert decode_access_token(body["access_token"]) == user.json()["user"]["id"]
 
 
 @pytest.mark.parametrize(("path", "overrides", "status"), [
@@ -70,7 +75,7 @@ def test_register_rejects_bad_requests(client, path, overrides, status):
 
 
 def test_register_trims_name(client):
-    assert post(client, "register", name="  Bob  ").json()["name"] == "Bob"
+    assert post(client, "register", name="  Bob  ").json()["user"]["name"] == "Bob"
 
 
 def test_login_failures_return_identical_responses(client):

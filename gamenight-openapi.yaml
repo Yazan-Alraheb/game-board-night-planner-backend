@@ -1,0 +1,2458 @@
+openapi: 3.2.1
+info:
+  title: GameNight API
+  version: 1.0.0
+  description: OpenAPI design for the GameNight board and card game night planner. JWT Bearer authentication is
+    required unless an operation indicates otherwise. Game-night recommendations use confirmed attendees and games
+    with owned collection status.
+servers:
+- url: http://localhost:8000
+  description: Local FastAPI development server
+tags:
+- name: Authentication
+- name: Users / Preferences
+- name: Games
+- name: Game Collection
+- name: Friends
+- name: Game Nights
+- name: Recommendations
+- name: Messages
+paths:
+  /api/auth/register:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new user
+      operationId: post_api_auth_register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Log in with email and password
+      operationId: post_api_auth_login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Get current authenticated user
+      operationId: get_api_auth_me
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                - user
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users/{id}:
+    get:
+      tags:
+      - Users / Preferences
+      summary: Get user profile
+      operationId: get_api_users_id
+      description: Returns public profile fields. For security, the response excludes password_hash and does not
+        disclose email unless authorized.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: &id001
+          type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                required:
+                - user
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+      - Users / Preferences
+      summary: Update own profile
+      operationId: put_api_users_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                required:
+                - user
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/users/{id}/preferences:
+    get:
+      tags:
+      - Users / Preferences
+      summary: Get user preferences
+      operationId: get_api_users_id_preferences
+      description: A user may read their own saved preferences; other users cannot access them directly.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences:
+                    $ref: '#/components/schemas/Preference'
+                required:
+                - preferences
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+      - Users / Preferences
+      summary: Update user preferences
+      operationId: put_api_users_id_preferences
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenceUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences:
+                    $ref: '#/components/schemas/Preference'
+                required:
+                - preferences
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/games:
+    get:
+      tags:
+      - Games
+      summary: Browse, search and filter games
+      operationId: get_api_games
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema: &id002
+          type: string
+      - name: players
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      - name: category
+        in: query
+        required: false
+        schema: *id002
+      - name: difficulty
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - Easy
+          - Medium
+          - Hard
+      - name: playtime
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+        description: Maximum playtime in minutes
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameList'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/games/{id}:
+    get:
+      tags:
+      - Games
+      summary: Get one game
+      operationId: get_api_games_id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game:
+                    $ref: '#/components/schemas/Game'
+                required:
+                - game
+                additionalProperties: false
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/users/{id}/collection:
+    get:
+      tags:
+      - Game Collection
+      summary: Get owned games or wishlist
+      operationId: get_api_users_id_collection
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CollectionStatus'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CollectionEntry'
+                required:
+                - games
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+      - Game Collection
+      summary: Add game to owned collection or wishlist
+      operationId: post_api_users_id_collection
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionAdd'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionChangeResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/users/{id}/collection/{game_id}:
+    put:
+      tags:
+      - Game Collection
+      summary: Change owned/wishlist status
+      operationId: put_api_users_id_collection_game_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: game_id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionChangeResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+    delete:
+      tags:
+      - Game Collection
+      summary: Remove game from collection or wishlist
+      operationId: delete_api_users_id_collection_game_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: game_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/friends:
+    get:
+      tags:
+      - Friends
+      summary: Get current user friends
+      operationId: get_api_friends
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicUser'
+                required:
+                - friends
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/users:
+    get:
+      tags:
+      - Friends
+      summary: Search users to add as friends
+      operationId: get_api_users
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema: *id002
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicUser'
+                required:
+                - users
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/friend-requests:
+    post:
+      tags:
+      - Friends
+      summary: Send a friend request
+      operationId: post_api_friend_requests
+      description: >-
+        The authenticated user is the sender. A pending request or accepted
+        friendship blocks another request between the two users in either
+        direction. After a recipient declines a request, the same sender cannot
+        resend to that recipient for seven days by default, configurable through
+        FRIEND_REQUEST_COOLDOWN_DAYS (a positive integer). The cooldown is measured
+        from the latest known decline time, not the request's creation time,
+        using timezone-aware UTC values. Resending is allowed exactly at expiry.
+        The reverse direction and different sender/recipient pairs are unaffected
+        by that decline. Historical declines without a known resolution time do
+        not impose a cooldown. Repeated resolution attempts do not restart it.
+        Resolution timestamps remain internal and are not response fields.
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friend_request:
+                    $ref: '#/components/schemas/FriendRequest'
+                required:
+                - friend_request
+                additionalProperties: false
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: An active friendship/request exists or the directed decline cooldown has not expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+    get:
+      tags:
+      - Friends
+      summary: List incoming or outgoing friend requests
+      operationId: get_api_friend_requests
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - incoming
+          - outgoing
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendRequest'
+                required:
+                - requests
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/friend-requests/{id}:
+    put:
+      tags:
+      - Friends
+      summary: Accept or decline friend request
+      operationId: put_api_friend_requests_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendRequestUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friend_request:
+                    $ref: '#/components/schemas/FriendRequest'
+                required:
+                - friend_request
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+    delete:
+      tags:
+      - Friends
+      summary: Cancel a pending request sent by the current user
+      operationId: delete_api_friend_requests_id
+      description: >-
+        Cancel a pending friend request sent by the authenticated user. Only the original sender can cancel a request. Successful cancellation returns 204 with no response body. Accepted or declined requests cannot be canceled.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      responses:
+        '204':
+          description: Pending request canceled; no response body
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Only the original sender can cancel this request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Friend request not found or already canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Only pending requests can be canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/friends/{id}:
+    delete:
+      tags:
+      - Friends
+      summary: Remove a friend
+      operationId: delete_api_friends_id
+      description: Path id is the friend’s User.id.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/game-nights:
+    get:
+      tags:
+      - Game Nights
+      summary: Get current user game nights
+      operationId: get_api_game_nights
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_nights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameNight'
+                required:
+                - game_nights
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+      - Game Nights
+      summary: Create a game night and optionally invite friends or select games
+      operationId: post_api_game_nights
+      description: Host ID is taken from the authenticated user. Host is automatically added to members with accepted
+        status. Optional invitee_ids create pending invitations.
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameNightCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_night:
+                    $ref: '#/components/schemas/GameNight'
+                required:
+                - game_night
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/game-nights/{id}:
+    get:
+      tags:
+      - Game Nights
+      summary: Get game-night details
+      operationId: get_api_game_nights_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_night:
+                    $ref: '#/components/schemas/GameNight'
+                required:
+                - game_night
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+      - Game Nights
+      summary: Edit game-night details
+      operationId: put_api_game_nights_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameNightUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_night:
+                    $ref: '#/components/schemas/GameNight'
+                required:
+                - game_night
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+    delete:
+      tags:
+      - Game Nights
+      summary: Delete a game night
+      operationId: delete_api_game_nights_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/game-nights/{id}/members:
+    post:
+      tags:
+      - Game Nights
+      summary: Invite an eligible friend to a game night
+      operationId: post_api_game_nights_id_members
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameNightInvite'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameNightMemberResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+      - Game Nights
+      summary: Get attendees and RSVP statuses
+      operationId: get_api_game_nights_id_members
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameNightMember'
+                required:
+                - members
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/game-nights/{id}/rsvp:
+    put:
+      tags:
+      - Game Nights
+      summary: Accept or decline own invitation
+      operationId: put_api_game_nights_id_rsvp
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RSVPUpdate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RSVPResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/game-nights/{id}/members/{user_id}:
+    delete:
+      tags:
+      - Game Nights
+      summary: Remove an attendee or leave
+      operationId: delete_api_game_nights_id_members_user_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: user_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/game-nights/{id}/games:
+    get:
+      tags:
+      - Game Nights
+      summary: Get available owned games from confirmed attendees
+      operationId: get_api_game_nights_id_games
+      description: Deduplicates confirmed attendees’ owned games. owners lists the attendees who own each game,
+        and selected indicates inclusion in GameNightGames.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GameNightAvailableGame'
+                required:
+                - games
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+      - Game Nights
+      summary: Select a game for the event
+      operationId: post_api_game_nights_id_games
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameNightGameAdd'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameNightGameResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict with existing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/game-nights/{id}/games/{game_id}:
+    delete:
+      tags:
+      - Game Nights
+      summary: Remove selected game from event
+      operationId: delete_api_game_nights_id_games_game_id
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+      - name: game_id
+        in: path
+        required: true
+        schema: *id001
+      responses:
+        '204':
+          description: No content
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/recommendations:
+    post:
+      tags:
+      - Recommendations
+      summary: Calculate ranked Best Matches for own collection or a selected game night
+      operationId: post_api_recommendations
+      description: mode=personal uses only the current user’s owned games; mode=game_night uses confirmed attendees’
+        owned games plus their saved preferences and dislikes. game_night_id is required in game_night mode. player_count
+        is required in personal mode; otherwise confirmed attendee count is used. Scores and reasons are calculated
+        dynamically and are not stored.
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+                required:
+                - recommendations
+                additionalProperties: false
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/conversations:
+    get:
+      tags:
+      - Messages
+      summary: Get private and group conversations
+      operationId: get_api_conversations
+      description: >-
+        Lists only conversations where the authenticated user has an existing
+        conversation membership. For game-night-linked conversations the user
+        must also remain the host or an accepted attendee. Results are ordered
+        newest-first by creation time and then conversation ID. Participants
+        expose public profile fields only.
+        Private conversations are omitted while their users are not accepted
+        friends. Conversations and messages remain stored; re-friending restores
+        visibility. Ordinary group membership is unaffected by friendship changes.
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+                required:
+                - conversations
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+      - Messages
+      summary: Create private or group conversation
+      operationId: post_api_conversations
+      description: >-
+        participant_ids accepts up to 50 IDs. The authenticated creator is added
+        automatically, so a group conversation may contain up to 51 members if
+        the creator is omitted from participant_ids. Private conversations
+        require exactly two distinct users including the creator; groups require
+        at least two. Supplying the creator once does not duplicate membership.
+        Private conversations require an accepted friendship in either request
+        direction. Ordinary groups require accepted friendship between the creator
+        and every other participant, but not between other members. Pending and
+        declined requests do not qualify; failure returns 403. Only a game-night host may create a linked
+        group conversation, and selected participants must be the host or
+        accepted attendees, without an additional friendship requirement. New attendees are not added automatically. Duplicate
+        private pairs, including reversed order, and duplicate game-night
+        conversations return 409.
+      security:
+      - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+                required:
+                - conversation
+                additionalProperties: false
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Accepted friendship required or unauthorized conversation access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: Private conversation or game-night conversation already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/conversations/{id}:
+    get:
+      tags:
+      - Messages
+      summary: Get conversation and participants
+      operationId: get_api_conversations_id
+      description: >-
+        Requires an existing conversation membership. For linked conversations,
+        the user must additionally remain the game-night host or an accepted
+        attendee. Existing conversations return 403 to unauthorized users;
+        nonexistent conversations return 404. Private conversations additionally
+        require current accepted friendship; after unfriending both users receive
+        403 for details and messages. History and membership are preserved, and
+        re-friending restores access to the same conversation. Ordinary group
+        access remains membership-based after friendship changes.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+                required:
+                - conversation
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Accepted friendship required or unauthorized conversation access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+  /api/conversations/{id}/messages:
+    get:
+      tags:
+      - Messages
+      summary: Get messages in conversation
+      operationId: get_api_conversations_id_messages
+      description: >-
+        Requires conversation membership and current game-night eligibility for
+        linked conversations. Private conversations require current accepted
+        friendship; unfriending returns 403 without deleting history. Ordinary
+        groups retain membership-based access. Returns the latest matching messages ordered by
+        created_at descending and id descending. The before timestamp is
+        exclusive. Timestamp-only continuation excludes all equal-time messages;
+        if a limited page ends within a timestamp tie, remaining messages at
+        that timestamp are skipped by the next before request.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      - name: before
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: Exclusive timezone-aware RFC 3339 timestamp, normalized to UTC; timezone-naive values return 422
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                required:
+                - messages
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Accepted friendship required or unauthorized conversation access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+    post:
+      tags:
+      - Messages
+      summary: Send message to conversation
+      operationId: post_api_conversations_id_messages
+      description: >-
+        Sender is derived from the authenticated user and must be a conversation
+        participant. Linked conversations also require current host or accepted
+        attendee eligibility instead of friendship. Private conversations require
+        current accepted friendship; unfriending returns 403 and preserves history.
+        Ordinary groups retain membership-based access. Content must contain a non-whitespace character,
+        is limited to 2000 characters, and preserves its original formatting.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/Message'
+                required:
+                - message
+                additionalProperties: false
+        '401':
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Accepted friendship required or unauthorized conversation access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id: *id001
+        name: *id002
+        email:
+          type: string
+          format: email
+        bio:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+        created_at: &id003
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - email
+      - created_at
+      additionalProperties: false
+    PublicUser:
+      type: object
+      properties:
+        id: *id001
+        name: *id002
+        bio:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - id
+      - name
+      additionalProperties: false
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required:
+      - name
+      - email
+      - password
+      additionalProperties: false
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password: *id002
+      required:
+      - email
+      - password
+      additionalProperties: false
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        access_token: *id002
+        token_type:
+          type: string
+          enum:
+          - bearer
+      required:
+      - user
+      - access_token
+      - token_type
+      additionalProperties: false
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        bio:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - name
+      additionalProperties: false
+    Preference:
+      type: object
+      properties:
+        id: *id001
+        user_id: *id001
+        favorite_categories:
+          type: array
+          items: *id002
+        disliked_categories:
+          type: array
+          items: *id002
+        preferred_difficulty:
+          allOf:
+          - type: string
+            enum:
+            - Easy
+            - Medium
+            - Hard
+          nullable: true
+        preferred_playtime:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - id
+      - user_id
+      - favorite_categories
+      - disliked_categories
+      additionalProperties: false
+    PreferenceUpdate:
+      type: object
+      properties:
+        favorite_categories:
+          type: array
+          items: *id002
+        disliked_categories:
+          type: array
+          items: *id002
+        preferred_difficulty:
+          type: string
+          enum:
+          - Easy
+          - Medium
+          - Hard
+          nullable: true
+        preferred_playtime:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - favorite_categories
+      - disliked_categories
+      additionalProperties: false
+    Game:
+      type: object
+      properties:
+        id: *id001
+        name: *id002
+        description:
+          type: string
+          nullable: true
+        minimum_players:
+          type: integer
+          minimum: 1
+        maximum_players:
+          type: integer
+          minimum: 1
+        playtime:
+          type: integer
+          minimum: 1
+          description: Minutes
+        difficulty:
+          type: string
+          enum:
+          - Easy
+          - Medium
+          - Hard
+        categories:
+          type: array
+          items: *id002
+        image_url:
+          type: string
+          format: uri
+          nullable: true
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          nullable: true
+        review_count:
+          type: integer
+          minimum: 0
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+      required:
+      - id
+      - name
+      - minimum_players
+      - maximum_players
+      - playtime
+      - difficulty
+      additionalProperties: false
+    GameList:
+      type: object
+      properties:
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/Game'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+      required:
+      - games
+      - total
+      - page
+      additionalProperties: false
+    CollectionStatus:
+      type: string
+      enum:
+      - owned
+      - wishlist
+    CollectionAdd:
+      type: object
+      properties:
+        game_id: *id001
+        status:
+          $ref: '#/components/schemas/CollectionStatus'
+      required:
+      - game_id
+      - status
+      additionalProperties: false
+    CollectionUpdate:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CollectionStatus'
+      required:
+      - status
+      additionalProperties: false
+    CollectionEntry:
+      type: object
+      properties:
+        game:
+          $ref: '#/components/schemas/Game'
+        status:
+          $ref: '#/components/schemas/CollectionStatus'
+      required:
+      - game
+      - status
+      additionalProperties: false
+    CollectionChangeResponse:
+      type: object
+      properties:
+        game_id: *id001
+        status:
+          $ref: '#/components/schemas/CollectionStatus'
+      required:
+      - game_id
+      - status
+      additionalProperties: false
+    FriendRequestStatus:
+      type: string
+      enum:
+      - pending
+      - accepted
+      - declined
+    FriendRequest:
+      type: object
+      properties:
+        id: *id001
+        requester_id: *id001
+        receiver_id: *id001
+        status:
+          $ref: '#/components/schemas/FriendRequestStatus'
+        created_at: *id003
+      required:
+      - id
+      - requester_id
+      - receiver_id
+      - status
+      - created_at
+      additionalProperties: false
+    FriendRequestCreate:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - user_id
+      additionalProperties: false
+    FriendRequestUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - accepted
+          - declined
+      required:
+      - status
+      additionalProperties: false
+    GameNight:
+      type: object
+      properties:
+        id: *id001
+        host_id: *id001
+        name: *id002
+        starts_at: *id003
+        location: *id002
+        notes:
+          type: string
+          nullable: true
+        created_at: *id003
+      required:
+      - id
+      - host_id
+      - name
+      - starts_at
+      - location
+      - created_at
+      additionalProperties: false
+    GameNightCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        starts_at: *id003
+        location:
+          type: string
+          minLength: 1
+        notes: *id002
+        game_ids:
+          type: array
+          items: *id001
+        invitee_ids:
+          type: array
+          items: *id001
+      required:
+      - name
+      - starts_at
+      - location
+      additionalProperties: false
+    GameNightUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        starts_at: *id003
+        location:
+          type: string
+          minLength: 1
+        notes: *id002
+      required:
+      - name
+      - starts_at
+      - location
+      additionalProperties: false
+    GameNightMember:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/PublicUser'
+        status:
+          $ref: '#/components/schemas/FriendRequestStatus'
+      required:
+      - user
+      - status
+      additionalProperties: false
+    GameNightInvite:
+      type: object
+      properties:
+        user_id: *id001
+      required:
+      - user_id
+      additionalProperties: false
+    GameNightMemberResponse:
+      type: object
+      properties:
+        member:
+          $ref: '#/components/schemas/GameNightMember'
+      required:
+      - member
+      additionalProperties: false
+    RSVPUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - accepted
+          - declined
+      required:
+      - status
+      additionalProperties: false
+    RSVPResponse:
+      type: object
+      properties:
+        game_night_id: *id001
+        status:
+          type: string
+          enum:
+          - pending
+          - accepted
+          - declined
+      required:
+      - game_night_id
+      - status
+      additionalProperties: false
+    GameNightAvailableGame:
+      type: object
+      properties:
+        game:
+          $ref: '#/components/schemas/Game'
+        owners:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUser'
+        selected:
+          type: boolean
+      required:
+      - game
+      - owners
+      - selected
+      additionalProperties: false
+    GameNightGameAdd:
+      type: object
+      properties:
+        game_id: *id001
+      required:
+      - game_id
+      additionalProperties: false
+    GameNightGameResponse:
+      type: object
+      properties:
+        game_id: *id001
+        game_night_id: *id001
+      required:
+      - game_id
+      - game_night_id
+      additionalProperties: false
+    RecommendationMode:
+      type: string
+      enum:
+      - personal
+      - game_night
+    RecommendationRequest:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/RecommendationMode'
+        game_night_id: *id001
+        player_count:
+          type: integer
+          minimum: 1
+        max_playtime:
+          type: integer
+          minimum: 1
+        categories:
+          type: array
+          items: *id002
+        experience_level:
+          type: string
+          enum:
+          - Beginner
+          - Intermediate
+          - Experienced
+      required:
+      - mode
+      - max_playtime
+      additionalProperties: false
+      description: game_night_id is required in game_night mode. player_count is required in personal mode; in game_night
+        mode it defaults to the number of accepted attendees. A recommendation considers only owned games; game-night
+        mode also considers confirmed attendees’ preferences and dislikes.
+    Recommendation:
+      type: object
+      properties:
+        game:
+          $ref: '#/components/schemas/Game'
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        reason: *id002
+        owners:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUser'
+      required:
+      - game
+      - score
+      - reason
+      - owners
+      additionalProperties: false
+    ConversationType:
+      type: string
+      enum:
+      - private
+      - group
+    Conversation:
+      type: object
+      properties:
+        id: *id001
+        type:
+          $ref: '#/components/schemas/ConversationType'
+        game_night_id:
+          type: integer
+          nullable: true
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicUser'
+        created_at: *id003
+      required:
+      - id
+      - type
+      - participants
+      - created_at
+      additionalProperties: false
+    ConversationCreate:
+      type: object
+      properties:
+        participant_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+        type:
+          $ref: '#/components/schemas/ConversationType'
+        game_night_id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      required:
+      - participant_ids
+      - type
+      additionalProperties: false
+      description: >-
+        participant_ids accepts up to 50 IDs. The authenticated creator is added
+        automatically, so a group conversation may contain up to 51 members if
+        the creator is omitted from participant_ids. Private conversations
+        require exactly two distinct users including the creator; groups require
+        at least two. participant_ids must be unique; the creator may be supplied
+        once. Omit game_night_id when not linking an event. It is only applicable
+        to groups. Only the host may create an event-linked conversation, and
+        every selected participant must be the host or an accepted attendee.
+        Private pairs and game-night conversations are unique; duplicates return
+        409. Invalid participant composition returns 400; missing users or events
+        return 404; unauthorized event creation or participants return 403.
+        Ordinary private and group conversations require accepted friendship
+        between the creator and every other participant; game-night conversations do not.
+    Message:
+      type: object
+      properties:
+        id: *id001
+        conversation_id: *id001
+        user_id: *id001
+        content: *id002
+        created_at: *id003
+      required:
+      - id
+      - conversation_id
+      - user_id
+      - content
+      - created_at
+      additionalProperties: false
+    MessageCreate:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          pattern: .*\S.*
+          description: Must contain a non-whitespace character; NUL characters (U+0000) are rejected; preserves formatting; maximum 2000 characters
+      required:
+      - content
+      additionalProperties: false
+    ErrorResponse:
+      type: object
+      properties:
+        detail: *id002
+      required:
+      - detail
+      additionalProperties: false
+    ValidationErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                  - *id002
+                  - *id001
+              msg: *id002
+              type: *id002
+            required:
+            - loc
+            - msg
+            - type
+      required:
+      - detail
+      additionalProperties: false
