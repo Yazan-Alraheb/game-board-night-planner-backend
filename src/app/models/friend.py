@@ -4,6 +4,7 @@ from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, S
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.time_types import UTCDateTime
 from sqlalchemy import Index, func
 
 class Friend(Base):
@@ -35,6 +36,9 @@ class Friend(Base):
         nullable=False,
     )
 
+    # Null on pending requests and historical resolutions with unknown timing.
+    resolved_at = Column(UTCDateTime(), nullable=True)
+
     requester = relationship(
         "User",
         foreign_keys=[requester_id],
@@ -62,5 +66,12 @@ class Friend(Base):
         func.greatest(requester_id, receiver_id),
         unique=True,
         postgresql_where=status.in_(["pending", "accepted"]),
+    ),
+    Index(
+        "ix_friends_decline_lookup",
+        requester_id,
+        receiver_id,
+        resolved_at.desc(),
+        postgresql_where=(status == "declined") & resolved_at.is_not(None),
     ),
 )

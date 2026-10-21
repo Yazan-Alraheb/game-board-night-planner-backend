@@ -51,3 +51,9 @@ class PublicUserResponse(BaseModel):
 
 class UserUpdateResponse(BaseModel):
     user: UserResponse
+
+
+class UserSearchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    users: list[PublicUser]

@@ -817,7 +817,8 @@ def test_user_path_ids(authenticated_users_client, method, suffix, body, path_id
     db.commit.assert_not_called()
 
 
-@pytest.mark.parametrize("url", ["/api/users", "/api/users//preferences"])
+# /api/users is now the valid user-search endpoint, covered by friend tests.
+@pytest.mark.parametrize("url", ["/api/users//preferences"])
 def test_missing_user_path_id(authenticated_users_client, url):
     client, db = authenticated_users_client
     assert client.get(url).status_code == 404
