@@ -130,15 +130,16 @@ BEGIN
             RAISE EXCEPTION 'Unexpected, duplicate, or missing indexes on %', t;
         END IF;
         fk_count := 0;
+        -- on_delete: 'c' = CASCADE (baseline), 'r' = RESTRICT (Issue #10 private pair).
         FOR spec IN SELECT * FROM (VALUES
-            ('conversations', 'game_night_id', 'game_nights', 'id'),
-            ('conversations', 'private_user_low_id', 'users', 'id'),
-            ('conversations', 'private_user_high_id', 'users', 'id'),
-            ('conversation_members', 'conversation_id', 'conversations', 'id'),
-            ('conversation_members', 'user_id', 'users', 'id'),
-            ('messages', 'conversation_id', 'conversations', 'id'),
-            ('messages', 'user_id', 'users', 'id')
-        ) v(tbl, col, ref_tbl, ref_col)
+            ('conversations', 'game_night_id', 'game_nights', 'id', 'c'),
+            ('conversations', 'private_user_low_id', 'users', 'id', 'r'),
+            ('conversations', 'private_user_high_id', 'users', 'id', 'r'),
+            ('conversation_members', 'conversation_id', 'conversations', 'id', 'c'),
+            ('conversation_members', 'user_id', 'users', 'id', 'c'),
+            ('messages', 'conversation_id', 'conversations', 'id', 'c'),
+            ('messages', 'user_id', 'users', 'id', 'c')
+        ) v(tbl, col, ref_tbl, ref_col, on_delete)
         WHERE tbl = t
           AND (upgraded OR col NOT IN ('private_user_low_id', 'private_user_high_id')) LOOP
             fk_count := fk_count + 1;
@@ -149,7 +150,7 @@ BEGIN
                   AND c.confrelid = to_regclass('public.' || spec.ref_tbl)
                   AND c.confkey = ARRAY[(SELECT attnum FROM pg_attribute
                       WHERE attrelid = c.confrelid AND attname = spec.ref_col)]::smallint[]
-                  AND c.confdeltype = 'c' AND c.confupdtype = 'a'
+                  AND c.confdeltype::text = spec.on_delete AND c.confupdtype = 'a'
                   AND c.confmatchtype = 's' AND c.convalidated
                   AND NOT c.condeferrable AND NOT c.condeferred) != 1 THEN
                 RAISE EXCEPTION 'Unexpected or missing foreign key %.%', t, spec.col;

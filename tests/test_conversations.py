@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import Index, MetaData, create_engine, create_mock_engine, event, func, select
+from sqlalchemy import Index, MetaData, create_engine, create_mock_engine, event, func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -603,6 +603,10 @@ def test_offline_postgresql_ddl_has_uniqueness_and_query_indexes():
     assert "CONSTRAINT uq_conversation_private_pair UNIQUE (private_user_low_id, private_user_high_id)" in sql
     assert "CONSTRAINT uq_conversation_game_night UNIQUE (game_night_id)" in sql
     assert "CONSTRAINT ck_conversation_private_pair CHECK" in sql
+    for column in ("private_user_low_id", "private_user_high_id"):
+        assert f"FOREIGN KEY({column}) REFERENCES users (id) ON DELETE RESTRICT" in sql
+        assert f"FOREIGN KEY({column}) REFERENCES users (id) ON DELETE CASCADE" not in sql
+    assert "FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE" in sql
     assert "CREATE INDEX ix_conversation_members_user_conversation" in sql
     assert "CREATE INDEX ix_messages_conversation_created_id ON messages (conversation_id, created_at DESC, id DESC)" in sql
     assert "created_at TIMESTAMP WITH TIME ZONE" in sql
@@ -736,3 +740,91 @@ def test_unfriend_endpoint_revokes_only_the_matching_private_pair(chat):
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(Conversation)) == 2
         assert db.scalar(select(func.count()).select_from(Message)) == 0
+
+
+def chat_history(client):
+    private = conversation_id(client)
+    group = conversation_id(client, kind="group", participants=[2, 3])
+    for actor, cid in [(1, private), (2, private), (2, group), (3, group)]:
+        response = client.post(f"/api/conversations/{cid}/messages", headers=auth(actor), json={"content": f"From {actor}"})
+        assert response.status_code == 201
+    return private, group
+
+
+def chat_snapshot(factory):
+    with factory() as db:
+        return {
+            "users": db.execute(select(User.id, User.email).order_by(User.id)).all(),
+            "conversations": db.execute(select(
+                Conversation.id, Conversation.type, Conversation.private_user_low_id, Conversation.private_user_high_id,
+            ).order_by(Conversation.id)).all(),
+            "members": db.execute(select(ConversationMember.conversation_id, ConversationMember.user_id).order_by(
+                ConversationMember.conversation_id, ConversationMember.user_id,
+            )).all(),
+            "messages": db.execute(select(Message.id, Message.conversation_id, Message.user_id, Message.content)
+                                   .order_by(Message.id)).all(),
+            "friends": db.execute(select(Friend.id, Friend.requester_id, Friend.receiver_id, Friend.status)
+                                  .order_by(Friend.id)).all(),
+        }
+
+
+def create_user_cascade_tables(factory):
+    # ORM user deletion loads every User relationship, including tables chat tests omit.
+    Base.metadata.create_all(factory.kw["bind"], tables=[
+        Base.metadata.tables[name] for name in ["preferences", "games", "user_games", "game_night_games"]
+    ])
+
+
+def assert_private_history_readable(client, private):
+    for actor in [1, 2]:
+        response = client.get(f"/api/conversations/{private}/messages", headers=auth(actor))
+        assert response.status_code == 200
+        assert sorted(m["content"] for m in response.json()["messages"]) == ["From 1", "From 2"]
+
+
+@pytest.mark.parametrize("victim", [1, 2], ids=["low-participant", "high-participant"])
+def test_orm_user_deletion_blocked_by_private_conversation(chat, victim):
+    client, factory = chat
+    create_user_cascade_tables(factory)
+    private, _ = chat_history(client)
+    before = chat_snapshot(factory)
+    with factory() as db:
+        db.delete(db.get(User, victim))
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
+    # The ORM cascades deleted messages and memberships before the user row; rollback restores them.
+    assert chat_snapshot(factory) == before
+    assert_private_history_readable(client, private)
+
+
+@pytest.mark.parametrize("victim", [1, 2], ids=["low-participant", "high-participant"])
+def test_sql_user_deletion_blocked_by_private_conversation(chat, victim):
+    client, factory = chat
+    private, _ = chat_history(client)
+    before = chat_snapshot(factory)
+    with factory() as db:
+        with pytest.raises(IntegrityError):
+            db.execute(text("DELETE FROM users WHERE id = :id"), {"id": victim})
+        db.rollback()
+    assert chat_snapshot(factory) == before
+    assert_private_history_readable(client, private)
+
+
+def test_user_without_private_conversation_keeps_baseline_cascades(chat):
+    client, factory = chat
+    create_user_cascade_tables(factory)
+    private, group = chat_history(client)
+    with factory() as db:
+        db.delete(db.get(User, 3))
+        db.commit()
+    with factory() as db:
+        assert db.get(User, 3) is None
+        assert db.execute(select(Message.user_id).where(Message.conversation_id == group)).scalars().all() == [2]
+        assert db.execute(select(ConversationMember.user_id).where(
+            ConversationMember.conversation_id == group,
+        ).order_by(ConversationMember.user_id)).scalars().all() == [1, 2]
+        assert db.scalar(select(func.count()).select_from(Friend).where(
+            (Friend.requester_id == 3) | (Friend.receiver_id == 3),
+        )) == 0
+    assert_private_history_readable(client, private)

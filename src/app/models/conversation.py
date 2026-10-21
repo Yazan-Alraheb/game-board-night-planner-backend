@@ -24,11 +24,12 @@ class Conversation(Base):
     )
 
     # Canonical pair for private conversations; membership still controls access.
+    # RESTRICT: deleting either user must not delete the other's private history.
     private_user_low_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True,
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True,
     )
     private_user_high_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True,
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True,
     )
 
     created_at = Column(
