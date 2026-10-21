@@ -59,13 +59,17 @@ class GameNightInvite(BaseModel):
     user_id: int = Field(gt=0)
 
 
-class GameNightMemberResponse(BaseModel):
+class GameNightMemberEntry(BaseModel):
     user: PublicUser
     status: GameNightMemberStatus
 
 
+class GameNightMemberResponse(BaseModel):
+    member: GameNightMemberEntry
+
+
 class GameNightMembersResponse(BaseModel):
-    members: list[GameNightMemberResponse]
+    members: list[GameNightMemberEntry]
 
 
 class RSVPUpdate(BaseModel):

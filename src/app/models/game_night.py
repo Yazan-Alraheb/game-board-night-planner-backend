@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.time_types import UTCDateTime
 
 
 class GameNight(Base):
@@ -20,7 +21,7 @@ class GameNight(Base):
     name = Column(String, nullable=False)
 
     starts_at = Column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         nullable=False,
     )
 
@@ -29,7 +30,7 @@ class GameNight(Base):
     notes = Column(Text, nullable=True)
 
     created_at = Column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )

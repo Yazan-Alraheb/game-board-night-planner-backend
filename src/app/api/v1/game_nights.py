@@ -435,8 +435,10 @@ def invite_member(
     db.refresh(member)
 
     return {
-        "user": member.user,
-        "status": member.status,
+        "member": {
+            "user": member.user,
+            "status": member.status,
+        }
     }
 
 
@@ -472,6 +474,8 @@ def update_rsvp(
         )
 
     member.status = data.status
+    # The session has autoflush disabled; the cleanup query must see the new status.
+    db.flush()
     remove_unavailable_selected_games(id, db)
 
     db.commit()
@@ -524,6 +528,8 @@ def remove_member(
     db.delete(member)
 
     if was_accepted:
+        # The session has autoflush disabled; the cleanup query must not see the member.
+        db.flush()
         remove_unavailable_selected_games(id, db)
 
     db.commit()
