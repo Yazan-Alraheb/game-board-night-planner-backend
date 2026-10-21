@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Annotated
 
+
 from pydantic import (
-    AfterValidator, AnyUrl, BaseModel, ConfigDict, StringConstraints, WithJsonSchema,
+    AfterValidator, AnyUrl, BaseModel, ConfigDict, EmailStr, Field, StringConstraints, WithJsonSchema,
 )
 
 
@@ -52,6 +53,18 @@ class PublicUserResponse(BaseModel):
 class UserUpdateResponse(BaseModel):
     user: UserResponse
 
+class RegisterRequest(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=100)
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    password: str
 
 class UserSearchResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
