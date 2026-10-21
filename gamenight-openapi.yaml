@@ -1515,6 +1515,15 @@ paths:
       - Messages
       summary: Get private and group conversations
       operationId: get_api_conversations
+      description: >-
+        Lists only conversations where the authenticated user has an existing
+        conversation membership. For game-night-linked conversations the user
+        must also remain the host or an accepted attendee. Results are ordered
+        newest-first by creation time and then conversation ID. Participants
+        expose public profile fields only.
+        Private conversations are omitted while their users are not accepted
+        friends. Conversations and messages remain stored; re-friending restores
+        visibility. Ordinary group membership is unaffected by friendship changes.
       security:
       - BearerAuth: []
       responses:
@@ -1543,6 +1552,20 @@ paths:
       - Messages
       summary: Create private or group conversation
       operationId: post_api_conversations
+      description: >-
+        participant_ids accepts up to 50 IDs. The authenticated creator is added
+        automatically, so a group conversation may contain up to 51 members if
+        the creator is omitted from participant_ids. Private conversations
+        require exactly two distinct users including the creator; groups require
+        at least two. Supplying the creator once does not duplicate membership.
+        Private conversations require an accepted friendship in either request
+        direction. Ordinary groups require accepted friendship between the creator
+        and every other participant, but not between other members. Pending and
+        declined requests do not qualify; failure returns 403. Only a game-night host may create a linked
+        group conversation, and selected participants must be the host or
+        accepted attendees, without an additional friendship requirement. New attendees are not added automatically. Duplicate
+        private pairs, including reversed order, and duplicate game-night
+        conversations return 409.
       security:
       - BearerAuth: []
       requestBody:
@@ -1577,7 +1600,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Accepted friendship required or unauthorized conversation access
           content:
             application/json:
               schema:
@@ -1594,19 +1617,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+        '409':
+          description: Private conversation or game-night conversation already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/conversations/{id}:
     get:
       tags:
       - Messages
       summary: Get conversation and participants
       operationId: get_api_conversations_id
+      description: >-
+        Requires an existing conversation membership. For linked conversations,
+        the user must additionally remain the game-night host or an accepted
+        attendee. Existing conversations return 403 to unauthorized users;
+        nonexistent conversations return 404. Private conversations additionally
+        require current accepted friendship; after unfriending both users receive
+        403 for details and messages. History and membership are preserved, and
+        re-friending restores access to the same conversation. Ordinary group
+        access remains membership-based after friendship changes.
       security:
       - BearerAuth: []
       parameters:
       - name: id
         in: path
         required: true
-        schema: *id001
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
       responses:
         '200':
           description: Success
@@ -1627,7 +1668,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Accepted friendship required or unauthorized conversation access
           content:
             application/json:
               schema:
@@ -1638,19 +1679,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
   /api/conversations/{id}/messages:
     get:
       tags:
       - Messages
       summary: Get messages in conversation
       operationId: get_api_conversations_id_messages
+      description: >-
+        Requires conversation membership and current game-night eligibility for
+        linked conversations. Private conversations require current accepted
+        friendship; unfriending returns 403 without deleting history. Ordinary
+        groups retain membership-based access. Returns the latest matching messages ordered by
+        created_at descending and id descending. The before timestamp is
+        exclusive. Timestamp-only continuation excludes all equal-time messages;
+        if a limited page ends within a timestamp tie, remaining messages at
+        that timestamp are skipped by the next before request.
       security:
       - BearerAuth: []
       parameters:
       - name: id
         in: path
         required: true
-        schema: *id001
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
       - name: limit
         in: query
         required: false
@@ -1665,7 +1724,7 @@ paths:
         schema:
           type: string
           format: date-time
-        description: Return messages before this timestamp
+        description: Exclusive timezone-aware RFC 3339 timestamp, normalized to UTC; timezone-naive values return 422
       responses:
         '200':
           description: Success
@@ -1688,7 +1747,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Accepted friendship required or unauthorized conversation access
           content:
             application/json:
               schema:
@@ -1699,19 +1758,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
     post:
       tags:
       - Messages
       summary: Send message to conversation
       operationId: post_api_conversations_id_messages
-      description: Sender is derived from the authenticated user and must be a conversation participant.
+      description: >-
+        Sender is derived from the authenticated user and must be a conversation
+        participant. Linked conversations also require current host or accepted
+        attendee eligibility instead of friendship. Private conversations require
+        current accepted friendship; unfriending returns 403 and preserves history.
+        Ordinary groups retain membership-based access. Content must contain a non-whitespace character,
+        is limited to 2000 characters, and preserves its original formatting.
       security:
       - BearerAuth: []
       parameters:
       - name: id
         in: path
         required: true
-        schema: *id001
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
       requestBody:
         required: true
         content:
@@ -1738,7 +1812,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Accepted friendship required or unauthorized conversation access
           content:
             application/json:
               schema:
@@ -2294,18 +2368,37 @@ components:
       properties:
         participant_ids:
           type: array
-          items: *id001
+          items:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
           minItems: 1
+          maxItems: 50
           uniqueItems: true
         type:
           $ref: '#/components/schemas/ConversationType'
-        game_night_id: *id001
+        game_night_id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
       required:
       - participant_ids
       - type
       additionalProperties: false
-      description: The authenticated user is included automatically. game_night_id is only applicable for group
-        conversations. Game-night conversations must be authorized and are unique per game night.
+      description: >-
+        participant_ids accepts up to 50 IDs. The authenticated creator is added
+        automatically, so a group conversation may contain up to 51 members if
+        the creator is omitted from participant_ids. Private conversations
+        require exactly two distinct users including the creator; groups require
+        at least two. participant_ids must be unique; the creator may be supplied
+        once. Omit game_night_id when not linking an event. It is only applicable
+        to groups. Only the host may create an event-linked conversation, and
+        every selected participant must be the host or an accepted attendee.
+        Private pairs and game-night conversations are unique; duplicates return
+        409. Invalid participant composition returns 400; missing users or events
+        return 404; unauthorized event creation or participants return 403.
+        Ordinary private and group conversations require accepted friendship
+        between the creator and every other participant; game-night conversations do not.
     Message:
       type: object
       properties:
@@ -2327,8 +2420,9 @@ components:
         content:
           type: string
           minLength: 1
+          maxLength: 2000
           pattern: .*\S.*
-          description: Must contain at least one non-whitespace character
+          description: Must contain a non-whitespace character; NUL characters (U+0000) are rejected; preserves formatting; maximum 2000 characters
       required:
       - content
       additionalProperties: false

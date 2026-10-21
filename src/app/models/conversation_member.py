@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import Column, ForeignKey, Index, Integer
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -6,6 +6,10 @@ from app.core.database import Base
 
 class ConversationMember(Base):
     __tablename__ = "conversation_members"
+
+    __table_args__ = (
+        Index("ix_conversation_members_user_conversation", "user_id", "conversation_id"),
+    )
 
     conversation_id = Column(
         Integer,
