@@ -1452,10 +1452,33 @@ paths:
       - Recommendations
       summary: Calculate ranked Best Matches for own collection or a selected game night
       operationId: post_api_recommendations
-      description: mode=personal uses only the current user’s owned games; mode=game_night uses confirmed attendees’
-        owned games plus their saved preferences and dislikes. game_night_id is required in game_night mode. player_count
-        is required in personal mode; otherwise confirmed attendee count is used. Scores and reasons are calculated
-        dynamically and are not stored.
+      description: >-
+        Calculates recommendations dynamically without saving results. Personal mode
+        uses only the authenticated user's owned games and saved preferences.
+        Game-night mode requires the host or an accepted attendee; no friendship or
+        conversation membership is required. Candidates come from owned collections
+        of the host and accepted attendees, deduplicated by game ID. Wishlist games
+        and pending, declined, removed, or unrelated users' collections are excluded.
+        Owners contains only eligible owners, ordered by user ID. Past events are allowed.
+        Player count and maximum playtime are hard filters. Personal saved dislikes
+        exclude a game unless the matching category is explicitly requested; other
+        unrequested disliked categories still exclude it. Group dislikes reduce scores.
+        Categories and experience are soft preferences. Scores use weights 30/20/20/15/15
+        for requested categories, experience, saved favorites, difficulty, and playtime.
+        Missing preferences are neutral and participants have equal weight. In personal
+        mode, explicit categories replace saved favorites and override matching dislikes,
+        and explicit experience replaces saved difficulty. In game_night mode, the
+        questionnaire adds criteria for the event only: categories feed only the
+        30-point requested-category component and experience only the 20-point
+        experience component. Every participant's saved favorites, difficulty, playtime,
+        and dislikes are always scored independently and are never replaced or disabled
+        by the questionnaire. Maximum playtime overrides saved playtime as an
+        eligibility limit; saved playtime remains a soft scoring preference.
+        Group dislikes subtract up to 20 points proportionally, including for requested
+        categories. Scores are clamped to 0-100, ordered by unrounded score descending
+        then game ID ascending, and rounded to two decimals in responses. Reasons
+        describe the group's saved fit only in aggregate and do not identify attendee
+        preferences. No qualifying games returns 200 with an empty recommendations array.
       security:
       - BearerAuth: []
       requestBody:
@@ -1480,7 +1503,7 @@ paths:
                 - recommendations
                 additionalProperties: false
         '400':
-          description: Bad request
+          description: Missing conditional player_count or game_night_id, or game_night_id supplied in personal mode
           content:
             application/json:
               schema:
@@ -1492,7 +1515,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden
+          description: Existing game night requires host or accepted attendee access
           content:
             application/json:
               schema:
@@ -2295,16 +2318,27 @@ components:
       properties:
         mode:
           $ref: '#/components/schemas/RecommendationMode'
-        game_night_id: *id001
+        game_night_id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
         player_count:
           type: integer
           minimum: 1
+          maximum: 2147483647
         max_playtime:
           type: integer
           minimum: 1
+          maximum: 2147483647
         categories:
           type: array
-          items: *id002
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: At most 50 items of at most 100 characters each, counted before trimming.
+            Trimmed and case-insensitive; blank strings are rejected; duplicates are collapsed.
         experience_level:
           type: string
           enum:
@@ -2315,9 +2349,16 @@ components:
       - mode
       - max_playtime
       additionalProperties: false
-      description: game_night_id is required in game_night mode. player_count is required in personal mode; in game_night
-        mode it defaults to the number of accepted attendees. A recommendation considers only owned games; game-night
-        mode also considers confirmed attendees’ preferences and dislikes.
+      description: >-
+        mode and max_playtime are universally required (422 if missing).
+        game_night_id is required in game_night mode and forbidden in personal mode
+        (400 for these mode/ID combinations). player_count is required in personal
+        mode (400 if omitted); in game_night mode it defaults to the number of unique
+        eligible participants, including the host and accepted attendees. An explicit
+        player_count overrides that default. Optional fields must be omitted rather
+        than sent as null. Integers are strict and at most 2147483647; booleans and
+        numeric strings are rejected.
+        Unknown fields, invalid types/values, blank categories, and invalid enums return 422.
     Recommendation:
       type: object
       properties:
