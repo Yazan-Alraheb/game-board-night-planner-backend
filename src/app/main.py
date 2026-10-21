@@ -12,6 +12,7 @@ from app.api.v1.friend_requests import router as friend_requests_router
 from app.api.v1.friends import router as friends_router
 
 from app.api.v1.conversations import router as conversations_router
+from app.api.v1.recommendations import router as recommendations_router
 
 
 
@@ -29,6 +30,7 @@ app.include_router(game_nights_router)
 app.include_router(friend_requests_router)
 app.include_router(friends_router)
 app.include_router(conversations_router)
+app.include_router(recommendations_router)
 
 @app.get("/")
 async def root():
