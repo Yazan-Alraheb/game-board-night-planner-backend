@@ -1478,7 +1478,9 @@ paths:
         categories. Scores are clamped to 0-100, ordered by unrounded score descending
         then game ID ascending, and rounded to two decimals in responses. Reasons
         describe the group's saved fit only in aggregate and do not identify attendee
-        preferences. No qualifying games returns 200 with an empty recommendations array.
+        preferences. In small game nights, recommendation scores and aggregate explanations
+        may allow participants to infer aspects of other attendees' saved preferences.
+        No qualifying games returns 200 with an empty recommendations array.
       security:
       - BearerAuth: []
       requestBody:
