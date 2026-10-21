@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.schemas.game import GameResponse
 from app.schemas.user import PublicUser
@@ -14,7 +14,7 @@ class GameNightCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
-    starts_at: datetime
+    starts_at: AwareDatetime
     location: str = Field(min_length=1)
     notes: str | None = None
     game_ids: list[int] = Field(default_factory=list)
@@ -25,7 +25,7 @@ class GameNightUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
-    starts_at: datetime
+    starts_at: AwareDatetime
     location: str = Field(min_length=1)
     notes: str | None = None
 
@@ -48,6 +48,9 @@ class GameNightDetailResponse(BaseModel):
 
 class GameNightListResponse(BaseModel):
     game_nights: list[GameNightResponse]
+
+class GameNightErrorResponse(BaseModel):
+    detail: str
 
 
 class GameNightInvite(BaseModel):

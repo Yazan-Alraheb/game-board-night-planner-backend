@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: game-board-night-planner-backend
+Version: 0.1.0
+Requires-Python: >=3.14
+Requires-Dist: fastapi[standard]>=0.141.1
+Requires-Dist: psycopg[binary]>=3.3.6
+Requires-Dist: pwdlib[argon2]>=0.3.1
+Requires-Dist: pydantic>=2.13.5
+Requires-Dist: pydantic-settings>=2.16.0
+Requires-Dist: pyjwt>=2.15.1
+Requires-Dist: sqlalchemy>=2.1.4
+Requires-Dist: uvicorn>=0.53.0

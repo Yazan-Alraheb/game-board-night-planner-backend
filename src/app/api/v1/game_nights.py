@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from datetime import timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
@@ -17,10 +19,12 @@ from app.schemas.game_night import (
     GameNightAvailableGamesResponse,
     GameNightCreate,
     GameNightDetailResponse,
+    GameNightErrorResponse,
     GameNightGameAdd,
     GameNightGameResponse,
     GameNightInvite,
     GameNightListResponse,
+    GameNightMemberResponse,
     GameNightMembersResponse,
     RSVPResponse,
     RSVPUpdate,
@@ -72,7 +76,43 @@ def ensure_host(game_night: GameNight, current_user: User) -> None:
         )
 
 
-@router.get("", response_model=GameNightListResponse)
+def remove_unavailable_selected_games(
+    game_night_id: int,
+    db: Session,
+) -> None:
+    selected_games = (
+        db.query(GameNightGame)
+        .filter(GameNightGame.game_night_id == game_night_id)
+        .all()
+    )
+
+    for selected_game in selected_games:
+        still_available = (
+            db.query(UserGame)
+            .join(
+                GameNightMember,
+                GameNightMember.user_id == UserGame.user_id,
+            )
+            .filter(
+                GameNightMember.game_night_id == game_night_id,
+                GameNightMember.status == "accepted",
+                UserGame.game_id == selected_game.game_id,
+                UserGame.status == "owned",
+            )
+            .first()
+        )
+
+        if still_available is None:
+            db.delete(selected_game)
+
+
+@router.get(
+    "",
+    response_model=GameNightListResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+    },
+)
 def list_game_nights(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -101,6 +141,12 @@ def list_game_nights(
     "",
     response_model=GameNightDetailResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"model": GameNightErrorResponse},
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
 )
 def create_game_night(
     data: GameNightCreate,
@@ -175,7 +221,7 @@ def create_game_night(
     game_night = GameNight(
         host_id=current_user.id,
         name=data.name,
-        starts_at=data.starts_at,
+        starts_at=data.starts_at.astimezone(timezone.utc),
         location=data.location,
         notes=data.notes,
     )
@@ -214,7 +260,14 @@ def create_game_night(
     return {"game_night": game_night}
 
 
-@router.get("/{id}", response_model=GameNightDetailResponse)
+@router.get(
+    "/{id}",
+    response_model=GameNightDetailResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def get_game_night(
     id: int,
     db: Session = Depends(get_db),
@@ -224,25 +277,27 @@ def get_game_night(
     return {"game_night": game_night}
 
 
-@router.put("/{id}", response_model=GameNightDetailResponse)
+@router.put(
+    "/{id}",
+    response_model=GameNightDetailResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def update_game_night(
     id: int,
     data: GameNightUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     ensure_host(game_night, current_user)
 
     game_night.name = data.name
-    game_night.starts_at = data.starts_at
+    game_night.starts_at = data.starts_at.astimezone(timezone.utc)
     game_night.location = data.location
     game_night.notes = data.notes
 
@@ -252,19 +307,21 @@ def update_game_night(
     return {"game_night": game_night}
 
 
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def delete_game_night(
     id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     ensure_host(game_night, current_user)
 
@@ -272,7 +329,14 @@ def delete_game_night(
     db.commit()
 
 
-@router.get("/{id}/members", response_model=GameNightMembersResponse)
+@router.get(
+    "/{id}/members",
+    response_model=GameNightMembersResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def list_members(
     id: int,
     db: Session = Depends(get_db),
@@ -300,8 +364,14 @@ def list_members(
 
 @router.post(
     "/{id}/members",
-    response_model=GameNightMembersResponse,
+    response_model=GameNightMemberResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+        409: {"model": GameNightErrorResponse},
+    },
 )
 def invite_member(
     id: int,
@@ -309,13 +379,7 @@ def invite_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     ensure_host(game_night, current_user)
 
@@ -368,24 +432,30 @@ def invite_member(
 
     db.add(member)
     db.commit()
+    db.refresh(member)
 
-    return {"members": []}
+    return {
+        "user": member.user,
+        "status": member.status,
+    }
 
 
-@router.put("/{id}/rsvp", response_model=RSVPResponse)
+@router.put(
+    "/{id}/rsvp",
+    response_model=RSVPResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def update_rsvp(
     id: int,
     data: RSVPUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     member = db.get(GameNightMember, (id, current_user.id))
 
@@ -395,7 +465,15 @@ def update_rsvp(
             detail="You are not invited to this game night",
         )
 
+    if current_user.id == game_night.host_id and data.status == "declined":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The host cannot decline the game night",
+        )
+
     member.status = data.status
+    remove_unavailable_selected_games(id, db)
+
     db.commit()
 
     return {
@@ -404,20 +482,22 @@ def update_rsvp(
     }
 
 
-@router.delete("/{id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
+)
 def remove_member(
     id: int,
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     if current_user.id != game_night.host_id and current_user.id != user_id:
         raise HTTPException(
@@ -439,13 +519,23 @@ def remove_member(
             detail="Member not found",
         )
 
+    was_accepted = member.status == "accepted"
+
     db.delete(member)
+
+    if was_accepted:
+        remove_unavailable_selected_games(id, db)
+
     db.commit()
 
 
 @router.get(
     "/{id}/games",
     response_model=GameNightAvailableGamesResponse,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
 )
 def list_available_games(
     id: int,
@@ -501,6 +591,12 @@ def list_available_games(
     "/{id}/games",
     response_model=GameNightGameResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+        409: {"model": GameNightErrorResponse},
+    },
 )
 def select_game(
     id: int,
@@ -508,13 +604,7 @@ def select_game(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     ensure_host(game_night, current_user)
 
@@ -570,6 +660,11 @@ def select_game(
 @router.delete(
     "/{id}/games/{game_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": GameNightErrorResponse},
+        403: {"model": GameNightErrorResponse},
+        404: {"model": GameNightErrorResponse},
+    },
 )
 def remove_selected_game(
     id: int,
@@ -577,13 +672,7 @@ def remove_selected_game(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    game_night = db.get(GameNight, id)
-
-    if game_night is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game night not found",
-        )
+    game_night = get_visible_game_night(id, db, current_user)
 
     ensure_host(game_night, current_user)
 
