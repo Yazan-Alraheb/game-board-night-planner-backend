@@ -7,10 +7,13 @@ from app.core.auth_settings import get_auth_settings
 from app.api.v1.users import router as users_router
 from app.api.v1.games import router as games_router
 from app.api.v1.collections import router as collections_router
+from app.api.v1.game_nights import router as game_nights_router
 from app.api.v1.friend_requests import router as friend_requests_router
 from app.api.v1.friends import router as friends_router
+
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.recommendations import router as recommendations_router
+
 
 
 @asynccontextmanager
@@ -23,11 +26,11 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(games_router)
 app.include_router(collections_router)
 app.include_router(users_router)
+app.include_router(game_nights_router)
 app.include_router(friend_requests_router)
 app.include_router(friends_router)
 app.include_router(conversations_router)
 app.include_router(recommendations_router)
-
 
 @app.get("/")
 async def root():
