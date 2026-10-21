@@ -8,8 +8,8 @@ from app.api.v1.users import router as users_router
 from app.api.v1.games import router as games_router
 from app.api.v1.collections import router as collections_router
 from app.api.v1.game_nights import router as game_nights_router
-
-
+from app.api.v1.friend_requests import router as friend_requests_router
+from app.api.v1.friends import router as friends_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_auth_settings()
@@ -21,7 +21,8 @@ app.include_router(games_router)
 app.include_router(collections_router)
 app.include_router(users_router)
 app.include_router(game_nights_router)
-
+app.include_router(friend_requests_router)
+app.include_router(friends_router)
 
 @app.get("/")
 async def root():
