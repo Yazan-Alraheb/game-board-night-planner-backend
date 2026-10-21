@@ -5,6 +5,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 
 # Testing
 pytest_review_*/
