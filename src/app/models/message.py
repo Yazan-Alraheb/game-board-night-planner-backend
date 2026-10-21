@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.time_types import UTCDateTime
 
 
 class Message(Base):
@@ -29,7 +30,7 @@ class Message(Base):
     )
 
     created_at = Column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
@@ -49,4 +50,6 @@ class Message(Base):
             "length(trim(content)) > 0",
             name="ck_message_content_not_empty",
         ),
+        CheckConstraint("length(content) <= 2000", name="ck_message_content_length"),
+        Index("ix_messages_conversation_created_id", conversation_id, created_at.desc(), id.desc()),
     )
