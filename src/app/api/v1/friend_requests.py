@@ -1,11 +1,13 @@
 from typing import Annotated, Literal
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, update
+from sqlalchemy import and_, delete, func, or_, update
 from sqlalchemy.exc import IntegrityError
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
+from app.core.friend_settings import get_friend_request_settings
 from app.models.friend import Friend
 from app.models.user import User
 from app.schemas.friend import FriendErrorResponse, FriendRequestCreate, FriendRequestEnvelope, FriendRequestListResponse, FriendRequestUpdate
@@ -17,6 +19,10 @@ router = APIRouter(
 )
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 @router.post(
     "",
     response_model=FriendRequestEnvelope,
@@ -25,7 +31,7 @@ router = APIRouter(
         400: {"model": FriendErrorResponse, "description": "Bad request"},
         401: {"model": FriendErrorResponse, "description": "Missing, invalid or expired access token"},
         404: {"model": FriendErrorResponse, "description": "User not found"},
-        409: {"model": FriendErrorResponse, "description": "Friendship or friend request already exists"},
+        409: {"model": FriendErrorResponse, "description": "Active friendship/request exists or decline cooldown has not expired"},
     },
 )
 def create_friend_request(
@@ -75,6 +81,30 @@ def create_friend_request(
             status_code=status.HTTP_409_CONFLICT,
             detail="A friendship or friend request already exists between these users",
         )
+
+    # Directed cooldown: A declining B's request only prevents B from resending
+    # to A. Unknown historical resolution times intentionally do not count.
+    try:
+        latest_decline = (
+            db.query(func.max(Friend.resolved_at))
+            .filter(
+                Friend.requester_id == current_user.id,
+                Friend.receiver_id == receiver_id,
+                Friend.status == "declined",
+                Friend.resolved_at.is_not(None),
+            )
+            .scalar()
+        )
+        if latest_decline is not None:
+            cooldown = timedelta(days=get_friend_request_settings().cooldown_days)
+            if utc_now() < latest_decline + cooldown:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Friend request decline cooldown has not expired",
+                )
+    except Exception:
+        db.rollback()
+        raise
 
     # 4. Create the new pending friend request
     new_friend_request = Friend(
@@ -195,7 +225,7 @@ def update_friend_request(
                 Friend.receiver_id == current_user.id,
                 Friend.status == "pending",
             )
-            .values(status=data.status)
+            .values(status=data.status, resolved_at=utc_now())
             .execution_options(synchronize_session=False)
         )
         if result.rowcount != 1:
@@ -211,3 +241,48 @@ def update_friend_request(
         raise
 
     return {"friend_request": friend_request}
+
+
+@router.delete(
+    "/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": FriendErrorResponse, "description": "Missing, invalid or expired access token"},
+        403: {"model": FriendErrorResponse, "description": "Only the original sender can cancel this request"},
+        404: {"model": FriendErrorResponse, "description": "Friend request not found or already canceled"},
+        409: {"model": FriendErrorResponse, "description": "Only pending requests can be canceled"},
+    },
+)
+def cancel_friend_request(
+    id: Annotated[int, Path(ge=1, le=2_147_483_647)],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    friend_request = db.get(Friend, id)
+    if friend_request is None:
+        raise HTTPException(status_code=404, detail="Friend request not found")
+    if friend_request.requester_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the original sender can cancel this request")
+    if friend_request.status != "pending":
+        raise HTTPException(status_code=409, detail="Only pending requests can be canceled")
+
+    try:
+        result = db.execute(
+            delete(Friend)
+            .where(
+                Friend.id == id,
+                Friend.requester_id == current_user.id,
+                Friend.status == "pending",
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            # Bypass the identity map after losing a race to resolution/cancel.
+            current = db.get(Friend, id, populate_existing=True)
+            if current is None:
+                raise HTTPException(status_code=404, detail="Friend request not found")
+            raise HTTPException(status_code=409, detail="Only pending requests can be canceled")
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

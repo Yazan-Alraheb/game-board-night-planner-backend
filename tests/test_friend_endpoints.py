@@ -262,6 +262,7 @@ ENDPOINTS = [
     ("post", "/api/friend-requests", {"user_id": 2}),
     ("get", "/api/friend-requests", None),
     ("put", "/api/friend-requests/1", {"status": "accepted"}),
+    ("delete", "/api/friend-requests/1", None),
     ("get", "/api/friends", None),
     ("delete", "/api/friends/2", None),
     ("get", "/api/users", None),
@@ -358,6 +359,7 @@ def mock_creation_db(error):
     db = MagicMock(spec=Session)
     db.get.return_value = User(id=2)
     db.query.return_value.filter.return_value.first.return_value = None
+    db.query.return_value.filter.return_value.scalar.return_value = None
     db.commit.side_effect = error
     return db
 
@@ -512,6 +514,7 @@ def test_maximum_supported_id_passes_validation(friendship_db, method):
     ("/api/friend-requests", "post", {"201", "400", "401", "404", "409"}),
     ("/api/friend-requests", "get", {"200", "401"}),
     ("/api/friend-requests/{id}", "put", {"200", "401", "403", "404", "409", "422"}),
+    ("/api/friend-requests/{id}", "delete", {"204", "401", "403", "404", "409", "422"}),
     ("/api/friends", "get", {"200", "401"}),
     ("/api/friends/{id}", "delete", {"204", "401", "404"}),
     ("/api/users", "get", {"200", "401"}),
