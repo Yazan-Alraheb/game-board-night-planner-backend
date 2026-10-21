@@ -5,6 +5,12 @@ import pytest
 from app.core import database
 
 
+def test_database_settings_are_isolated_from_project_dotenv():
+    assert database.settings.database_url == "sqlite:///:memory:"
+    assert database.Settings.model_config["env_file"] is None
+    assert database.Settings().database_url == "sqlite:///:memory:"
+
+
 def test_get_db_closes_session(monkeypatch):
     mock_session = MagicMock()
 

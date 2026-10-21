@@ -1,11 +1,22 @@
 import os
+from tempfile import TemporaryDirectory
 
 import pytest
 
 # Database settings are loaded at import time; never use the development URL.
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
+# Initialize the import-time database settings where no project .env exists.
+# Restore cwd immediately; subsequent test settings use public model_config.
+with TemporaryDirectory(prefix="gamenight-test-settings-") as settings_directory:
+    with pytest.MonkeyPatch.context() as settings_patch:
+        settings_patch.chdir(settings_directory)
+        from app.core.database import Settings as DatabaseSettings
+
 from app.core.auth_settings import AuthSettings, get_auth_settings
+
+DatabaseSettings.model_config["env_file"] = None
+AuthSettings.model_config["env_file"] = None
 
 
 @pytest.fixture
