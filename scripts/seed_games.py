@@ -14,7 +14,7 @@ games = [
         "playtime": 60,
         "difficulty": "Medium",
         "categories": ["Strategy", "Family"],
-        "image_url": None,
+        "image_url": "/images/games/catan.jpg",
         "rating": 4.5,
         "review_count": 100,
         "instructions": "Collect resources and build settlements.",
