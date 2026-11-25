@@ -82,7 +82,7 @@ def game_nights(auth_environment):
     factory = sessionmaker(bind=engine, autoflush=False)
     with factory() as db:
         db.add_all([
-            User(id=i, name=f"Player {i}", email=f"secret{i}@example.com",
+            User(id=i, name=f"Player {i}", username=f"player_{i}", email=f"secret{i}@example.com",
                  password_hash="private-hash")
             for i in range(1, 6)
         ])
@@ -188,12 +188,12 @@ def test_invitation_response_matches_contract(game_nights):
     assert response.status_code == 201
     assert response.json() == {
         "member": {
-            "user": {"id": 4, "name": "Player 4", "bio": None, "avatar_url": None},
+            "user": {"id": 4, "name": "Player 4", "username": "player_4", "bio": None, "avatar_url": None},
             "status": "pending",
         }
     }
     members = client.get("/api/game-nights/1/members", headers=auth(1)).json()["members"]
-    assert {"user": {"id": 4, "name": "Player 4", "bio": None, "avatar_url": None},
+    assert {"user": {"id": 4, "name": "Player 4", "username": "player_4", "bio": None, "avatar_url": None},
             "status": "pending"} in members
 
     schemas = app.openapi()["components"]["schemas"]

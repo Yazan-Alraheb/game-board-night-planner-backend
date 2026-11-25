@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
@@ -195,22 +195,44 @@ def update_user_preferences(
     return {"preferences": preferences}
 
 
+
 @router.get(
     "",
     response_model=UserSearchResponse,
-    responses={401: {"model": FriendErrorResponse, "description": "Missing, invalid or expired access token"}},
+    responses={
+        401: {
+            "model": FriendErrorResponse,
+            "description": "Missing, invalid or expired access token",
+        }
+    },
 )
 def search_users(
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(User).filter(User.id != current_user.id)
+    query = db.query(User).filter(
+        User.id != current_user.id
+    )
 
     if search and search.strip():
-        query = query.filter(
-            func.lower(User.name).contains(search.strip().lower())
-        )
+        term = search.strip().lower()
+
+        if term.startswith("@"):
+            query = query.filter(
+                User.username == term[1:]
+            )
+        else:
+            query = query.filter(
+                or_(
+                    func.lower(User.name).contains(
+                        term, autoescape=True
+                    ),
+                    User.username.contains(
+                        term, autoescape=True
+                    ),
+                )
+            )
 
     users = query.order_by(User.name, User.id).all()
 

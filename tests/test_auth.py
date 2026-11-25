@@ -18,7 +18,12 @@ from app.services import user as user_service
 for module in pkgutil.iter_modules(models.__path__):
     importlib.import_module(f"app.models.{module.name}")
 
-USER = {"name": "Bob", "email": "bob@gmail.com", "password": "supersecret"}
+USER = {
+    "name": "Bob",
+    "username": "bob123",
+    "email": "bob@gmail.com",
+    "password": "supersecret",
+}
 
 
 @pytest.fixture
@@ -45,8 +50,11 @@ def client(auth_environment):
 
 def post(client, path, **overrides):
     payload = USER | overrides
+
     if path == "login":
         payload.pop("name")
+        payload.pop("username")
+
     return client.post(f"/api/auth/{path}", json=payload)
 
 
@@ -84,7 +92,7 @@ def test_login_failures_return_identical_responses(client):
     unknown_email = post(client, "login", email="nobody@gmail.com")
     for response in (wrong_password, unknown_email):
         assert response.status_code == 401
-        assert response.json() == {"detail": "Invalid email or password"}
+        assert response.json() == {"detail": "Invalid username, email, or password"}
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
@@ -96,10 +104,25 @@ def test_login_verifies_password_for_unknown_email(client, monkeypatch):
     assert len(calls) == 1
 
 
-def test_register_duplicate_email_database_error_returns_409(client, monkeypatch):
+def test_register_duplicate_email_database_error_returns_409(
+    client, monkeypatch
+):
     post(client, "register")
-    monkeypatch.setattr(user_repository, "get_user_by_email", lambda db, email: None)
-    assert post(client, "register").status_code == 409
+
+    monkeypatch.setattr(
+        user_repository,
+        "get_user_by_email",
+        lambda db, email: None,
+    )
+
+    response = post(
+        client,
+        "register",
+        username="anotherbob",
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Email is already registered"
 
 
 def test_register_reraises_unrelated_integrity_errors(client, monkeypatch):
@@ -109,3 +132,175 @@ def test_register_reraises_unrelated_integrity_errors(client, monkeypatch):
     monkeypatch.setattr(user_repository, "create_user", fail)
     with pytest.raises(IntegrityError):
         post(client, "register")
+
+
+
+def test_register_saves_username(client):
+    response = post(client, "register")
+
+    assert response.status_code == 201
+    assert response.json()["user"]["username"] == "bob123"
+
+
+def test_register_normalizes_username(client):
+    response = post(
+        client,
+        "register",
+        username="Bob123",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["user"]["username"] == "bob123"
+
+
+def test_register_duplicate_username(client):
+    post(client, "register")
+
+    response = post(
+        client,
+        "register",
+        username="BOB123",
+        email="another@gmail.com",
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Username is already registered"
+
+
+def test_register_duplicate_username_database_error(
+    client, monkeypatch
+):
+    post(client, "register")
+
+    monkeypatch.setattr(
+        user_repository,
+        "get_user_by_username",
+        lambda db, username: None,
+    )
+
+    response = post(
+        client,
+        "register",
+        email="another@gmail.com",
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Username is already registered"
+
+
+@pytest.mark.parametrize(
+    "username",
+    ["ab", "bob smith", "bob@123", "", "a" * 33],
+)
+def test_register_invalid_username(client, username):
+    response = post(
+        client,
+        "register",
+        username=username,
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_missing_username(client):
+    payload = USER.copy()
+    payload.pop("username")
+
+    response = client.post(
+        "/api/auth/register",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_login_with_username(client):
+    registered = post(client, "register")
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "bob123",
+            "password": USER["password"],
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["user"]["username"] == "bob123"
+    assert decode_access_token(body["access_token"]) == (
+        registered.json()["user"]["id"]
+    )
+
+
+def test_login_with_uppercase_username(client):
+    post(client, "register")
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "BOB123",
+            "password": USER["password"],
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_login_with_email_identifier(client):
+    post(client, "register")
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": USER["email"],
+            "password": USER["password"],
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_login_with_unknown_username(client):
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "unknownuser",
+            "password": USER["password"],
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Invalid username, email, or password"
+    )
+
+
+def test_login_username_wrong_password(client):
+    post(client, "register")
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "identifier": "bob123",
+            "password": "wrongpassword",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Invalid username, email, or password"
+    )
+
+
+def test_login_missing_identifier(client):
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "password": USER["password"],
+        },
+    )
+
+    assert response.status_code == 422

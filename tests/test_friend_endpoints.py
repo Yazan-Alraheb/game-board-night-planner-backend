@@ -52,9 +52,20 @@ def friendship_db(auth_environment):
     factory = sessionmaker(bind=engine)
     with factory() as db:
         db.add_all([
-            User(id=i, name=name, email=f"private{i}@example.com",
-                 password_hash=f"private-hash-{i}", bio=f"Bio {i}")
-            for i, name in [(1, "Alice"), (2, "Bob"), (3, "Carol"), (4, "Bobby")]
+            User(
+                id=i,
+                name=name,
+                username=f"player_{i}",
+                email=f"private{i}@example.com",
+                password_hash=f"private-hash-{i}",
+                bio=f"Bio {i}",
+            )
+            for i, name in [
+                (1, "Alice"),
+                (2, "Bob"),
+                (3, "Carol"),
+                (4, "Bobby"),
+            ]
         ])
         db.commit()
 
@@ -86,7 +97,14 @@ def insert_request(factory, sender=1, recipient=2, status="pending"):
 
 
 def assert_public(profile):
-    assert set(profile) == {"id", "name", "bio", "avatar_url"}
+    assert set(profile) == {
+        "id",
+        "name",
+        "username",
+        "bio",
+        "avatar_url",
+    }
+
     assert "email" not in profile
     assert "password_hash" not in profile
 
@@ -530,3 +548,40 @@ def test_openapi_documents_contract_errors(path, method, codes):
         assert error_schema["required"] == ["detail"]
         assert error_schema["properties"]["detail"]["type"] == "string"
         assert error_schema["additionalProperties"] is False
+
+
+
+@pytest.mark.parametrize(
+    "search, expected",
+    [
+        ("player_2", [2]),
+        ("PLAYER_2", [2]),
+        ("player", [2, 4, 3]),
+        ("@player_2", [2]),
+        ("@PLAYER_2", [2]),
+        ("@player", []),
+        ("@player_1", []),
+        ("@unknown_user", []),
+        ("player%", []),
+        ("player_9", []),
+    ],
+)
+def test_search_users_by_username(
+    friendship_db, search, expected
+):
+    client, _ = friendship_db
+
+    response = client.get(
+        "/api/users",
+        headers=auth(),
+        params={"search": search},
+    )
+
+    assert response.status_code == 200
+
+    users = response.json()["users"]
+
+    assert [user["id"] for user in users] == expected
+
+    for user in users:
+        assert_public(user)

@@ -23,6 +23,7 @@ def test_get_user_returns_public_profile():
     mock_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="secret-hash",
         bio="I love strategy games!",
@@ -43,6 +44,7 @@ def test_get_user_returns_public_profile():
             "user": {
                 "id": 42,
                 "name": "Player",
+                "username": "player42",
                 "bio": "I love strategy games!",
                 "avatar_url": None,
             }
@@ -62,6 +64,7 @@ def test_get_user_not_found():
     app.dependency_overrides[get_current_user] = lambda: User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
     )
 
@@ -83,6 +86,7 @@ def test_update_user_success():
     mock_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -114,6 +118,7 @@ def test_update_user_success():
                 "email": "player@example.com",
                 "created_at": "2026-01-01T00:00:00Z",
                 "name": "Player One",
+                "username": "player42",
                 "bio": "I love strategy games!",
                 "avatar_url": None,
             }
@@ -133,6 +138,7 @@ def test_update_user_forbidden():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -170,6 +176,7 @@ def test_update_user_not_found():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -205,6 +212,7 @@ def test_get_user_preferences_success():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -253,6 +261,7 @@ def test_get_user_preferences_forbidden():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -282,6 +291,7 @@ def test_get_user_preferences_not_found():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -309,6 +319,7 @@ def test_update_existing_preferences():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -367,6 +378,7 @@ def test_create_user_preferences():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -427,6 +439,7 @@ def test_update_user_preferences_forbidden():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -493,6 +506,7 @@ def test_update_user_preferences_invalid_data(invalid_data):
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -571,6 +585,7 @@ def test_update_user_rolls_back_on_commit_failure():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -607,6 +622,7 @@ def test_update_preferences_rolls_back_on_commit_failure():
     current_user = User(
         id=42,
         name="Player",
+        username="player42",
         email="player@example.com",
         password_hash="test-hash",
     )
@@ -774,7 +790,7 @@ def authenticated_users_client():
 def test_get_another_users_public_profile(authenticated_users_client):
     client, db = authenticated_users_client
     db.get.return_value = User(
-        id=99, name="Another player", email="private@example.com",
+        id=99, name="Another player", username="player99", email="private@example.com",
         password_hash="private-hash", bio="Hello", avatar_url=None,
     )
 
@@ -782,7 +798,7 @@ def test_get_another_users_public_profile(authenticated_users_client):
 
     assert response.status_code == 200
     assert response.json() == {"user": {
-        "id": 99, "name": "Another player", "bio": "Hello", "avatar_url": None,
+        "id": 99, "name": "Another player", "username": "player99", "bio": "Hello", "avatar_url": None,
     }}
     db.get.assert_called_once_with(User, 99)
     db.commit.assert_not_called()
@@ -845,7 +861,7 @@ def test_put_replaces_optional_fields(authenticated_users_client,
         key = "preferences"
     else:
         record = User(
-            id=42, name="Old name", email="owner@example.com",
+            id=42, name="Old name", username="player42", email="owner@example.com",
             created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
             bio="Old bio", avatar_url="https://example.com/avatar.png",
         )
@@ -914,7 +930,7 @@ def test_profile_put_rejects_blank_name(authenticated_users_client, name):
 def test_profile_put_trims_name(authenticated_users_client):
     client, db = authenticated_users_client
     db.get.return_value = User(
-        id=42, name="Old", email="owner@example.com",
+        id=42, name="Old", username="player42", email="owner@example.com",
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
     response = client.put("/api/users/42", json={"name": "  Player One \t"})
@@ -947,7 +963,7 @@ def test_update_rejects_extra_fields(authenticated_users_client, suffix, body):
 def test_profile_put_accepts_uri(authenticated_users_client, uri):
     client, db = authenticated_users_client
     db.get.return_value = User(
-        id=42, name="Player", email="owner@example.com",
+        id=42, name="Player", username="player42", email="owner@example.com",
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
     response = client.put("/api/users/42", json={"name": "Player", "avatar_url": uri})

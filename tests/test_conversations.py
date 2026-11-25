@@ -58,7 +58,7 @@ def chat(auth_environment):
     factory = sessionmaker(bind=engine)
     with factory() as db:
         db.add_all([
-            User(id=i, name=f"Player {i}", email=f"private{i}@example.com",
+            User(id=i, name=f"Player {i}", username=f"player_{i}", email=f"private{i}@example.com",
                  password_hash=f"private-hash-{i}", bio=f"Bio {i}")
             for i in range(1, 6)
         ])
@@ -122,7 +122,7 @@ def assert_public_conversation(body, ids):
     assert set(body) == {"id", "type", "game_night_id", "participants", "created_at"}
     assert [p["id"] for p in body["participants"]] == ids
     for profile in body["participants"]:
-        assert set(profile) == {"id", "name", "bio", "avatar_url"}
+        assert set(profile) == {"id", "name", "username", "bio", "avatar_url"}
         assert "email" not in profile and "password_hash" not in profile
     assert "private_user_low_id" not in body and "private_user_high_id" not in body
     assert body["created_at"].endswith("Z")
@@ -250,7 +250,13 @@ def test_participant_array_bounds(chat, count):
     if count == 50:
         with factory() as db:
             db.add_all([
-                User(id=i, name=f"Player {i}", email=f"player{i}@example.com", password_hash="test-hash")
+                User(
+                    id=i,
+                    name=f"Player {i}",
+                    username=f"player_{i}",
+                    email=f"player{i}@example.com",
+                    password_hash="test-hash",
+                )
                 for i in range(6, 51)
             ])
             db.add_all([

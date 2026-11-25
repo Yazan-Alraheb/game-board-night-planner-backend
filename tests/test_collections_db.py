@@ -80,6 +80,7 @@ def create_user(session_factory, name, email):
     with session_factory() as db:
         user = User(
             name=name,
+            username=email.split("@")[0].lower(),
             email=email,
             password_hash="test-only-password-hash",
         )

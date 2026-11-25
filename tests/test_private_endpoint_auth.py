@@ -178,11 +178,11 @@ def user_client(auth_environment):
 
 def test_real_tokens_allow_access_but_other_users_cannot_modify_data(user_client):
     alice = user_client.post("/api/auth/register", json={
-        "name": "Alice", "email": "alice-security@example.com",
+        "name": "Alice", "username": "alice_security", "email": "alice-security@example.com",
         "password": "testing-password-123",
     })
     bob = user_client.post("/api/auth/register", json={
-        "name": "Bob", "email": "bob-security@example.com",
+        "name": "Bob", "username": "bob_security", "email": "bob-security@example.com",
         "password": "testing-password-456",
     })
     assert alice.status_code == 201, alice.text
@@ -223,7 +223,7 @@ def test_real_tokens_allow_access_but_other_users_cannot_modify_data(user_client
 
 def test_login_issues_a_token_accepted_by_private_routes(user_client):
     registration = user_client.post("/api/auth/register", json={
-        "name": "Tester", "email": "login-security@example.com",
+        "name": "Tester", "username": "tester_security", "email": "login-security@example.com",
         "password": "correct-password-123",
     })
     assert registration.status_code == 201, registration.text

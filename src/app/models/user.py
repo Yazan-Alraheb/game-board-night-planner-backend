@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import CheckConstraint, Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -8,8 +8,15 @@ from app.core.database import Base
 class User(Base):
     __tablename__ = "users"
 
+    __table_args__ = (
+        CheckConstraint(
+            "username = LOWER(username)",
+            name="ck_users_username_lowercase",
+        ),
+    )
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    username = Column(String(32), unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     bio = Column(Text, nullable=True)

@@ -95,9 +95,102 @@ uv run uvicorn app.main:app --reload
 
 Open **http://127.0.0.1:8000/docs** in your browser to use Swagger UI.
 
+
+
+## Database Migration - Username System
+
+The username feature adds a required, unique username to the users table.
+
+### Existing Databases
+
+If your database was created before the username feature, you must apply the migration once.
+
+Stop the FastAPI server and ensure PostgreSQL is running:
+
+```bash
+docker compose up -d db
+```
+
+Back up the database before applying the migration. Keep the backup outside the repository because it contains sensitive user information.
+
+Apply the migration:
+
+```bash
+docker compose exec -T db psql -X -U gamenight -d gamenight -v ON_ERROR_STOP=1 < migrations/011_add_usernames.sql
+```
+
+The migration:
+
+- Adds the username column to the users table.
+- Generates unique usernames for existing users (e.g., user_1).
+- Requires every user to have a username.
+- Enforces lowercase usernames.
+- Creates a unique username index.
+- Preserves existing accounts and relationships.
+
+Do not run the migration again if the username column already exists.
+
+### New Databases
+
+New databases created using SQLAlchemy's create_all() already include the username column and its constraints. No additional username migration is required.
+
+
+
+
 ## Authentication
 
-In Swagger, use `POST /api/auth/register` to create an account or `POST /api/auth/login` to sign in. Copy the `access_token` from the response, click **Authorize**, and paste the token. Swagger adds `Bearer` automatically.
+Users can register with a unique username and log in using either their username or email.
+
+### Username Requirements
+
+- Between 3 and 32 characters.
+- Letters, numbers, and underscores only.
+- Case insensitive and stored in lowercase.
+- Must be unique.
+
+### Registration
+
+POST /api/auth/register
+
+```json
+{
+  "name": "Example Player",
+  "username": "player123",
+  "email": "player@example.com",
+  "password": "password123"
+}
+```
+
+### Login
+
+POST /api/auth/login
+
+Users can provide either their username or email as the identifier.
+
+```json
+{
+  "identifier": "player123",
+  "password": "password123"
+}
+```
+
+The existing email-based request format is also supported for backward compatibility.
+
+After logging in, copy the access_token from the response, click Authorize in Swagger, and paste the token.
+
+### User Search
+
+GET /api/users?search=player
+
+Users can search by display name or username.
+
+Prefix a username with @ to perform an exact username search.
+
+Example:
+
+GET /api/users?search=%40player123
+
+Public user profiles include usernames but do not expose email addresses or password hashes.
 
 ## Testing
 
