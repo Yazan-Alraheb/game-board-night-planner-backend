@@ -29,7 +29,7 @@ def recommendations(auth_environment):
         [User, Game, UserGame, Preference, GameNight, GameNightMember]])
     factory = sessionmaker(bind=engine)
     with factory() as db:
-        db.add_all([User(id=i, name=f"Player {i}", email=f"secret{i}@example.com",
+        db.add_all([User(id=i, name=f"Player {i}", username=f"player_{i}", email=f"secret{i}@example.com",
                          password_hash="private-hash") for i in range(1, 7)])
         db.add_all([Game(id=i, name=f"Game {i}", minimum_players=2, maximum_players=4,
                          playtime=60, difficulty="Medium", categories=["Strategy"])
@@ -82,7 +82,7 @@ def test_personal_ownership_and_private_response(recommendations):
     assert set(results[0]) == {"game", "score", "reason", "owners"}
     assert results[0]["score"] == 50
     assert [o["id"] for o in results[0]["owners"]] == [1]
-    assert set(results[0]["owners"][0]) == {"id", "name", "bio", "avatar_url"}
+    assert set(results[0]["owners"][0]) == {"id", "name", "username", "bio", "avatar_url"}
     assert "secret" not in str(results) and "private-hash" not in str(results)
 
 

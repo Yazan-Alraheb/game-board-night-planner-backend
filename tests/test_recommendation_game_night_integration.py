@@ -57,7 +57,7 @@ def workflow(auth_environment):
     factory = sessionmaker(bind=engine, autoflush=False)
     with factory() as db:
         db.add_all([
-            User(id=i, name=f"Player {i}", email=f"secret{i}@example.com",
+            User(id=i, name=f"Player {i}", username=f"player_{i}", email=f"secret{i}@example.com",
                  password_hash="private-hash")
             for i in (HOST, ACCEPTED, PENDING)
         ])

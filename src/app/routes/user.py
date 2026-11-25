@@ -8,26 +8,63 @@ from app.services import user as user_service
 router = APIRouter(prefix ="/api/auth", tags = ["auth"])
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED, responses={status.HTTP_409_CONFLICT: {"description": "Email is already registered"}})
-def register(data : RegisterRequest, db: Session = Depends(get_db)):
+@router.post(
+    "/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {
+            "description": "Email or username is already registered"
+        }
+    },
+)
+def register(
+    data: RegisterRequest,
+    db: Session = Depends(get_db),
+):
     try:
         user, token = user_service.register_user(db, data)
-        return AuthResponse(user=UserResponse.model_validate(user), access_token=token)
+
+        return AuthResponse(
+            user=UserResponse.model_validate(user),
+            access_token=token,
+        )
+
     except user_service.EmailAlreadyRegisteredError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail = "Email is already registered",
+            detail="Email is already registered",
+        )
+
+    except user_service.UsernameAlreadyRegisteredError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username is already registered",
         )
 
 
-@router.post("/login", response_model=AuthResponse, responses={status.HTTP_401_UNAUTHORIZED: {"description": "Invalid email or password"}})
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    responses={
+        401: {"description": "Invalid username, email, or password"}
+    },
+)
+def login(
+    data: LoginRequest,
+    db: Session = Depends(get_db),
+):
     try:
         user, token = user_service.login_user(db, data)
-        return AuthResponse(user=UserResponse.model_validate(user), access_token=token)
+
+        return AuthResponse(
+            user=UserResponse.model_validate(user),
+            access_token=token,
+        )
+
     except user_service.InvalidCredentialsError:
         raise HTTPException(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail = "Invalid email or password",
-            headers = {"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username, email, or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
